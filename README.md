@@ -6,9 +6,11 @@ few walkthrough videos become:
 
 1. a clean **floorplan** and cutaway, for you to approve,
 2. **room models** matched to the video, at the detail level you pick,
-3. **lit renders** of each room and the whole level.
+3. **lit renders** of each room and the whole level,
+4. **renovation concepts**: 2–3 remodel options per room, rendered from the same cameras as the
+   room today so before and after compare directly.
 
-Renovation design, contractor drawings and product fitting are next (see the roadmap below).
+Contractor drawings and product fitting are next (see the roadmap below).
 
 Claude drives Blender for you: headless for builds and renders, and optionally your live Blender
 window over MCP so you can orbit the model as it's built.
@@ -19,6 +21,10 @@ window over MCP so you can orbit the model as it's built.
 
 *Renders of the bundled example: a made-up two-room cottage.*
 
+![Kitchen as it is, and two concepts from the same camera](docs/5-concepts.jpg)
+
+*A concept board: the kitchen today, an "open nook" update and a "bright" refresh.*
+
 ## The skills
 
 | Skill | What it does |
@@ -27,6 +33,7 @@ window over MCP so you can orbit the model as it's built.
 | **scan-capture** | Before you start: how to scan and film each room so nothing needs re-shooting. |
 | **scan-to-floorplan** | Scan + videos → room outlines, doors and windows, floorplan and cutaway renders, approved by you. |
 | **room-rebuild** | Approved floorplan → each room modelled at your detail level, compared still-by-still with the video → final lit renders. |
+| **renovation-concepts** | A short design brief → 2–3 options per room as changes to the model (refresh, update or rework), checked against clearance guidelines → before/after boards → finals of the one you pick. |
 | **blender-mcp-setup** | Optional: connects Claude to your open Blender window, and proves it. |
 
 Each skill ends at a point where you approve the result. `project.json` records where every
@@ -73,6 +80,7 @@ works through the stages:
 | Items | A short list of the main items per room | Pick a detail preset; add or remove items |
 | Rooms | Models each room; puts each video still beside its render | Room by room or in parallel; approve or correct each room |
 | Finals | Test pass, then high-resolution renders lit by the room's real fixtures | |
+| Concepts | Brief, then 2–3 options per room with the numbers (aisles, clearances); a board per camera | Scope and style; pick, mix or refine |
 
 **Detail presets:**
 
@@ -95,6 +103,8 @@ skills/home-project/          project.json + shared toolkit
 skills/scan-capture/          scanning and filming checklist
 skills/scan-to-floorplan/     scan inspection and survey scripts, example level
 skills/room-rebuild/          whole-level assembly, example rooms, materials, parallel-agent brief
+skills/renovation-concepts/   conceptkit (remove / repaint / add on the as-is room, same cameras),
+                              comparison boards, design rules with code / guideline / taste labels
 skills/blender-mcp-setup/     live Blender connection
 .mcp.json                     declares the blender MCP server (uvx mcp-for-blender, telemetry off)
 ```
@@ -104,8 +114,7 @@ needed and not included here.
 
 ## Roadmap
 
-- **0.3: renovation-concepts.** A design brief, then 2–3 options per room as changes to the room
-  as it is today. Before/after renders from the same camera.
+- **0.3: renovation-concepts.** Done.
 - **0.4: renovation-docs.** Dimensioned plans and wall views, cabinet layouts, and quantities
   (paint, flooring, tile, trim) for a contractor or the hardware store.
 - **0.5: product-fit.** Drop in real products from a link or measurements, check clearances, keep a

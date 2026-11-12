@@ -1,6 +1,6 @@
 ---
 name: home-project
-description: Start, resume or check a home 3D project (one level of a house from a room scan and walkthrough videos) and route to the right skill of the suite (scan-capture, scan-to-floorplan, room-rebuild). Owns project.json, the shared geometry and progress file, the shared Blender toolkit (roomkit) and the principles every phase follows. Use when the user starts a home scan / floorplan / room-model / renovation project, asks "where are we" on one, or another suite skill needs the project set up.
+description: Start, resume or check a home 3D project (one level of a house from a room scan and walkthrough videos) and route to the right skill of the suite (scan-capture, scan-to-floorplan, room-rebuild, renovation-concepts). Owns project.json, the shared geometry and progress file, the shared Blender toolkit (roomkit) and the principles every phase follows. Use when the user starts a home scan / floorplan / room-model / renovation project, asks "where are we" on one, or another suite skill needs the project set up.
 ---
 
 # Home project
@@ -16,6 +16,7 @@ the suite reads and writes it, so work can stop and resume in a later session.
 | **scan-capture** | How to scan and film the space (before anything else) | nothing |
 | **scan-to-floorplan** | Scan + videos → rooms, openings, floorplan render, approved | a scan |
 | **room-rebuild** | Approved floorplan → room models at a detail level → lit renders | level approved |
+| **renovation-concepts** | Design brief → 2-3 remodel options per room → before/after boards → a chosen concept | room approved |
 | **blender-mcp-setup** | Live Blender window for any of the above (optional) | Blender |
 
 ## Start or resume

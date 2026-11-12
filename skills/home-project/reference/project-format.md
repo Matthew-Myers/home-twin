@@ -31,8 +31,24 @@ skills through `scripts/project.py`; safe to read and edit by hand. Example: `ex
       "items": ["steel shelving x3 (48 in)", "tool chest"],   // the approved item list
       "module": "scripts/rooms/garage.py",  // build_asis() + CAMERAS
       "status": "planned",                  // planned | modelled | approved | final
-      "notes": "free text: what's assumed, what the user corrected"
+      "notes": "free text: what's assumed, what the user corrected",
+      "concepts": {                         // renovation-concepts; written by the concept module's INFO
+        "nook": {
+          "title": "Open nook",
+          "scope": "update",                // refresh | update | rework
+          "idea": "one line",
+          "changes": ["cabinets painted navy", "..."],
+          "keeps": ["layout, counters, appliances"],
+          "module": "scripts/concepts/garage_nook.py",
+          "status": "draft",                // draft | shortlisted | chosen | rejected (user's word)
+          "notes": ""
+        }
+      }
     }
+  },
+  "brief": {                                // renovation-concepts: the design brief, once per project
+    "scope": "update", "style": "warm modern", "budget": "mid",
+    "goals": ["more counter space"], "keep": ["the desk and its wall"], "notes": ""
   },
   "history": [{"date": "2026-11-12", "skill": "scan-to-floorplan", "event": "level -> approved"}]
 }
@@ -48,4 +64,6 @@ skills through `scripts/project.py`; safe to read and edit by hand. Example: `ex
   `approved` on the user's word, `final` when the final renders exist. Going back (the user reopens
   a room) is fine: set it and log why.
 - `history` is append-only; `project.py` adds entries on status changes.
-- Later suite skills add their own keys (e.g. `rooms.<room>.concepts`) without changing these.
+- Concepts never change `outline`, `openings` or `ceiling`: those record the house as it is. A
+  concept that moves a wall does it in its own module.
+- Later suite skills add their own keys without changing these.

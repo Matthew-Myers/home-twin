@@ -15,11 +15,13 @@ import json, os, sys, shutil, datetime
 FORMAT = 1
 HERE = os.path.dirname(os.path.abspath(__file__))
 # skills whose scripts/ are copied into a project, in this order (later ones win on a clash)
-SUITE = ["home-project", "scan-to-floorplan", "room-rebuild"]
+SUITE = ["home-project", "scan-to-floorplan", "room-rebuild", "renovation-concepts"]
 
 LEVEL_STATES = ["draft", "approved"]
 ROOM_STATES = ["planned", "modelled", "approved", "final"]
 DETAIL_LEVELS = ["bare", "shelves cleared", "decluttered", "as-is"]
+CONCEPT_STATES = ["draft", "shortlisted", "chosen", "rejected"]
+SCOPES = ["refresh", "update", "rework"]       # see renovation-concepts/SKILL.md
 
 def _default_root():
     """a copy in <project>/scripts/ -> <project>"""
@@ -78,6 +80,24 @@ def set_status(room, status, root=None, skill=None):
     log(p, f"{room} -> {status}", skill)
     save(p, root)
 
+def concept(room, cid, root=None):
+    """a room's concept record (renovation-concepts), or None"""
+    return load(root)["rooms"][room].get("concepts", {}).get(cid)
+
+def set_concept(room, cid, root=None, skill="renovation-concepts", **fields):
+    """create or update rooms.<room>.concepts.<cid>; status changes are logged to history"""
+    p = load(root)
+    cs = p["rooms"][room].setdefault("concepts", {})
+    c = cs.setdefault(cid, {"title": cid, "scope": None, "idea": "", "changes": [], "keeps": [],
+                            "module": None, "status": "draft", "notes": ""})
+    if "status" in fields and fields["status"] not in CONCEPT_STATES:
+        raise ValueError(f"concept status must be one of {CONCEPT_STATES}")
+    if fields.get("status") and fields["status"] != c["status"]:
+        log(p, f"{room}/{cid} -> {fields['status']}", skill)
+    c.update(fields)
+    save(p, root)
+    return c
+
 def require(room, at_least, root=None):
     """stop unless the room (or 'level') has reached a state, e.g. require('kitchen', 'approved')"""
     p = load(root)
@@ -115,6 +135,16 @@ def check(p):
                     out.append(f"{name}: edge {i} opening height {z0}-{z1} outside floor-ceiling")
         if r.get("detail") and r["detail"] not in DETAIL_LEVELS:
             out.append(f"{name}: detail '{r['detail']}' is not one of {DETAIL_LEVELS}")
+        for cid, c in r.get("concepts", {}).items():
+            if c.get("status") not in CONCEPT_STATES:
+                out.append(f"{name}/{cid}: concept status '{c.get('status')}' is not one of {CONCEPT_STATES}")
+            if c.get("scope") and c["scope"] not in SCOPES:
+                out.append(f"{name}/{cid}: scope '{c['scope']}' is not one of {SCOPES}")
+            if c.get("status") != "draft" and r["status"] not in ("approved", "final"):
+                out.append(f"{name}/{cid}: concepts past draft need the room approved first")
+    b = p.get("brief")
+    if b and b.get("scope") and b["scope"] not in SCOPES:
+        out.append(f"brief: scope '{b['scope']}' is not one of {SCOPES}")
     return out
 
 # ---------------------------------------------------------------- CLI
@@ -159,6 +189,12 @@ def status(root):
     w = max([len(n) for n in p["rooms"]] + [4])
     for name, r in p["rooms"].items():
         print(f"  {name:<{w}}  {r['status']:<9} detail={r.get('detail') or '-':<16} module={r.get('module') or '-'}")
+        for cid, c in r.get("concepts", {}).items():
+            print(f"  {'':<{w}}    concept {cid:<14} {c['status']:<11} {c.get('scope') or '-':<8} {c.get('title', '')}")
+    if p.get("brief"):
+        b = p["brief"]
+        print(f"brief: scope={b.get('scope') or '-'}, style={b.get('style') or '-'}, "
+              f"budget={b.get('budget') or '-'}")
     probs = check(p)
     print("checks: OK" if not probs else "checks:\n  " + "\n  ".join(probs))
     nxt = next_step(p)
@@ -174,7 +210,13 @@ def next_step(p):
             return f"room-rebuild ({name} is {r['status']})"
     if any(r["status"] == "approved" for r in p["rooms"].values()):
         return "room-rebuild (final renders for approved rooms)"
-    return "all rooms final"
+    if not p.get("brief"):
+        return "all rooms final; renovation-concepts if a remodel is wanted (no design brief yet)"
+    for name, r in p["rooms"].items():
+        cs = r.get("concepts", {})
+        if cs and not any(c["status"] == "chosen" for c in cs.values()):
+            return f"renovation-concepts ({name}: no concept chosen yet)"
+    return "all rooms final; renovation-concepts for any room without concepts"
 
 if __name__ == "__main__":
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
