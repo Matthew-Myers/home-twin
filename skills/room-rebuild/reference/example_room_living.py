@@ -10,20 +10,17 @@
 # Live (MCP): importlib.reload(rk); importlib.reload(living); rk.reset(); living.build_asis()
 import bpy, os, sys, math, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import roomkit as rk
+import roomkit as rk, project as pj
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUT = os.path.join(ROOT, "renders", "living")
-CEILING = 2.44
 ROOM = "living"
+OUT = os.path.join(ROOT, "renders", ROOM)
 
-# ---------------------------------------------------------------- geometry (plan metres)
-OUTLINE = [(0.0, 0.0), (5.2, 0.0), (5.2, 6.0), (0.0, 6.0)]
-DOOR = (0.3, 1.2, 0, 2.05)              # edge 0 (south), front door
-WINDOW_S = (3.4, 4.8, 0.85, 2.05)       # edge 0 (south), picture window
-TO_KITCHEN = (3.4, 4.6, 0, 2.10)        # edge 1 (east), cased opening
-WINDOW_W = (2.0, 3.6, 0.85, 2.05)       # edge 3 (west)
-OPENINGS = {0: [DOOR, WINDOW_S], 1: [TO_KITCHEN], 3: [WINDOW_W]}
+# ---------------------------------------------------------------- geometry: from project.json
+OUTLINE, OPENINGS, CEILING = pj.geometry(ROOM)
+DOOR, WINDOW_S = OPENINGS[0]            # edge 0 (south): front door, picture window
+(TO_KITCHEN,) = OPENINGS[1]             # edge 1 (east): cased opening
+(WINDOW_W,) = OPENINGS[3]               # edge 3 (west)
 F_S, F_E, F_N, F_W = [rk.Frame(OUTLINE[i], OUTLINE[(i + 1) % 4]) for i in range(4)]
 # F_S u = x | F_E u = y | F_N u = 5.2 - x | F_W u = 6.0 - y; v always points into the room
 

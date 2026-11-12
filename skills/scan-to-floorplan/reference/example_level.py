@@ -1,30 +1,19 @@
 # example_level.py - Phase 2 floorplan for a small made-up two-room cottage (living room + kitchen).
-# In a real project this is scripts/level.py and every number comes from room_survey.py and the
-# stills; here the numbers are invented. Shows: clean walls with rk.shell (built outward from the
-# interior faces), openings, windows, scanned items as labelled blocks, plan + cutaway renders.
+# In a real project this is scripts/level.py. Room outlines, openings and ceilings live in
+# project.json (written from room_survey.py and the stills), so the level and every room module
+# share one copy of the geometry. This file adds only what the project file doesn't hold: floor
+# finishes, built-ins and the scanned items as labelled blocks. Openings that start above the floor
+# get a window; ones that start at the floor are doors or cased openings.
 # Run: blender -b -P scripts/level.py      -> renders/level_plan.jpg, renders/level_cutaway.jpg
-# Coordinates: plan metres from the level's SW corner, x east, y north, z = 0 at the floor.
 import bpy, os, sys, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import importlib, roomkit as rk
+import importlib, roomkit as rk, project as pj
 importlib.reload(rk)
 from mathutils import Vector
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CEILING = 2.44          # scan wall height (8'0")
 CUT = 1.5               # cutaway / plan wall height
-
-# ---------------------------------------------------------------- rooms (interior faces, CCW)
-# Openings per edge: (start, end, bottom, top), measured along the edge from its first corner.
-LIVING = [(0.0, 0.0), (5.2, 0.0), (5.2, 6.0), (0.0, 6.0)]
-LIVING_OPEN = {0: [(0.3, 1.2, 0, 2.05),          # front door, south wall
-                   (3.4, 4.8, 0.85, 2.05)],      # picture window, south wall
-               1: [(3.4, 4.6, 0, 2.10)],          # cased opening east to the kitchen, y 3.4-4.6
-               3: [(2.0, 3.6, 0.85, 2.05)]}       # window, west wall y 4.0-2.4
-KITCHEN = [(5.32, 0.0), (8.6, 0.0), (8.6, 6.0), (5.32, 6.0)]   # 0.12 m wall between the rooms
-KITCHEN_OPEN = {1: [(3.6, 4.5, 0, 2.05)],         # back door, east wall y 3.6-4.5
-                2: [(1.2, 2.4, 1.05, 2.05)],      # window over the sink, north wall x 7.4-6.2
-                3: [(1.4, 2.6, 0, 2.10)]}         # the cased opening from the living room
+FLOORS = {"living": ("oak_floor", (0.55, 0.40, 0.26)), "kitchen": ("tile_floor", (0.70, 0.70, 0.68))}
 
 # scanned furniture (from the survey), as blocks: (label, x0, y0, x1, y1, h, kind)
 SCAN_ITEMS = [
@@ -50,16 +39,19 @@ def named(prefix, fn, *a, **kw):
 def build():
     rk.reset()
     wall = rk.mat("wall", (0.86, 0.85, 0.81), 0.9)
-    oak = rk.mat("oak_floor", (0.55, 0.40, 0.26), 0.5)
-    tile = rk.mat("tile_floor", (0.70, 0.70, 0.68), 0.4)
     trim = rk.mat("trim", (0.93, 0.93, 0.91), 0.5)
-    named("living", rk.shell, LIVING, CEILING, LIVING_OPEN, wall, oak)
-    named("kitchen", rk.shell, KITCHEN, CEILING, KITCHEN_OPEN, wall, tile)
+    for room in pj.load()["rooms"]:
+        outline, openings, ceiling = pj.geometry(room)
+        floor_m = rk.mat(*FLOORS.get(room, ("floor", (0.6, 0.6, 0.58))), 0.5)
+        named(room, rk.shell, outline, ceiling, openings, wall, floor_m)
+        for edge, ops in openings.items():
+            f = rk.Frame(outline[edge], outline[(edge + 1) % len(outline)])
+            for s0, s1, z0, z1 in ops:
+                if z0 > 0:                                  # starts above the floor: a window
+                    named(room, rk.window, f, s0, s1, z0, z1, trim, (2, 1))
     for o in [o for o in bpy.data.objects if o.name.endswith("ground") or "ground." in o.name][1:]:
         bpy.data.objects.remove(o)                  # one outdoor ground plane is enough
-    named("living", rk.window, rk.Frame(LIVING[0], LIVING[1]), 3.4, 4.8, 0.85, 2.05, trim, (2, 1))
-    named("living", rk.window, rk.Frame(LIVING[3], LIVING[0]), 2.0, 3.6, 0.85, 2.05, trim, (2, 1))
-    named("kitchen", rk.window, rk.Frame(KITCHEN[2], KITCHEN[3]), 1.2, 2.4, 1.05, 2.05, trim, (2, 1))
+    oak = bpy.data.materials["oak_floor"]
     rk.box("living_threshold", 5.2, 3.4, -0.01, 5.32, 4.6, 0.0, oak, 0)   # floor through the wall opening
     kind_m = {"appliance": rk.mat("appliance", (0.85, 0.85, 0.86), 0.3),
               "furniture": rk.mat("furniture", (0.45, 0.62, 0.45), 0.7)}
@@ -104,13 +96,19 @@ def ft_in(m):
     i = round(m / 0.0254)
     return f"{i // 12}'{i % 12}\""
 
-# (name, label x, label y, (room width, room depth) or None)
-LABELS = [("LIVING", 2.6, 2.6, (5.2, 6.0)),
-          ("KITCHEN", 6.96, 4.3, (3.28, 6.0))]
+# room labels sit at the outline's centre unless moved off the furniture here; sizes come from the outline
+LABEL_AT = {"living": (2.6, 2.6), "kitchen": (6.96, 4.3)}
+EXTRA_LABELS = []        # (text, x, y) for things that aren't rooms: "STAIRS", "closet", ...
 
 def labels():
     ink = rk.emissive("ink", (0.55, 0.02, 0.02), 0.3)
-    for name, x, y, size in LABELS:
+    items = []
+    for room, r in pj.load()["rooms"].items():
+        xs, ys = [c[0] for c in r["outline"]], [c[1] for c in r["outline"]]
+        x, y = LABEL_AT.get(room, ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
+        items.append((room.upper().replace("_", " "), x, y, (max(xs) - min(xs), max(ys) - min(ys))))
+    items += [(t, x, y, None) for t, x, y in EXTRA_LABELS]
+    for name, x, y, size in items:
         body = name if not size else f"{name}\n{size[0]:.2f} x {size[1]:.2f} m\n{ft_in(size[0])} x {ft_in(size[1])}"
         cu = bpy.data.curves.new(name, 'FONT'); cu.body = body
         cu.size = 0.28 if size else 0.22; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'

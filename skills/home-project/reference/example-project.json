@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "name": "demo-cottage",
+  "coords": "metres from the level's south-west corner; x east, y north, z = 0 at the floor",
+  "scan": {"file": "source/scan/cottage.usdz", "k": 10, "footprint_m": [8.72, 6.12]},
+  "videos": [
+    {"file": "source/video/walk-1.mp4", "rooms": ["living"]},
+    {"file": "source/video/walk-2.mp4", "rooms": ["kitchen"]}
+  ],
+  "level": {"ceiling": 2.44, "script": "scripts/level.py", "status": "approved"},
+  "rooms": {
+    "living": {
+      "outline": [[0.0, 0.0], [5.2, 0.0], [5.2, 6.0], [0.0, 6.0]],
+      "ceiling": 2.44,
+      "openings": {
+        "0": [[0.3, 1.2, 0.0, 2.05], [3.4, 4.8, 0.85, 2.05]],
+        "1": [[3.4, 4.6, 0.0, 2.1]],
+        "3": [[2.0, 3.6, 0.85, 2.05]]
+      },
+      "frames": "frames/living",
+      "detail": "decluttered",
+      "items": ["sofa 2.2 x 0.92 m (7'3\" x 3'0\")", "coffee table 1.1 x 0.6 m", "lounge chair",
+                "media credenza 1.5 m + TV", "bookcase 0.9 m with books and a plant", "rug 2.6 x 2.7 m",
+                "floor lamp"],
+      "module": "scripts/rooms/living.py",
+      "status": "final",
+      "notes": "front door and picture window on the south wall; cased opening east to the kitchen"
+    },
+    "kitchen": {
+      "outline": [[5.32, 0.0], [8.6, 0.0], [8.6, 6.0], [5.32, 6.0]],
+      "ceiling": 2.44,
+      "openings": {
+        "1": [[3.6, 4.5, 0.0, 2.05]],
+        "2": [[1.2, 2.4, 1.05, 2.05]],
+        "3": [[1.4, 2.6, 0.0, 2.1]]
+      },
+      "frames": "frames/kitchen",
+      "detail": "decluttered",
+      "items": ["north run: fridge, sink base, dishwasher, uppers", "south run: range, hood, uppers",
+                "round table 1.0 m + 4 chairs", "kettle, fruit bowl"],
+      "module": "scripts/rooms/kitchen.py",
+      "status": "final",
+      "notes": "window over the sink; back door on the east wall"
+    }
+  },
+  "history": [
+    {"date": "2026-11-12", "skill": "home-project", "event": "project created"},
+    {"date": "2026-11-12", "skill": "scan-to-floorplan", "event": "level -> approved"},
+    {"date": "2026-11-12", "skill": "room-rebuild", "event": "living -> final"},
+    {"date": "2026-11-12", "skill": "room-rebuild", "event": "kitchen -> final"}
+  ]
+}

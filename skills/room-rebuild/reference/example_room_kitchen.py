@@ -4,19 +4,17 @@
 # Run: blender -b -P scripts/rooms/kitchen.py [-- final [test]] [cam ...]
 import bpy, os, sys, math
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import roomkit as rk
+import roomkit as rk, project as pj
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUT = os.path.join(ROOT, "renders", "kitchen")
-CEILING = 2.44
 ROOM = "kitchen"
+OUT = os.path.join(ROOT, "renders", ROOM)
 
-# ---------------------------------------------------------------- geometry (plan metres)
-OUTLINE = [(5.32, 0.0), (8.6, 0.0), (8.6, 6.0), (5.32, 6.0)]
-BACK_DOOR = (3.6, 4.5, 0, 2.05)         # edge 1 (east)
-WINDOW = (1.2, 2.4, 1.05, 2.05)         # edge 2 (north), over the sink
-TO_LIVING = (1.4, 2.6, 0, 2.10)         # edge 3 (west)
-OPENINGS = {1: [BACK_DOOR], 2: [WINDOW], 3: [TO_LIVING]}
+# ---------------------------------------------------------------- geometry: from project.json
+OUTLINE, OPENINGS, CEILING = pj.geometry(ROOM)
+(BACK_DOOR,) = OPENINGS[1]              # edge 1 (east)
+(WINDOW,) = OPENINGS[2]                 # edge 2 (north), over the sink
+(TO_LIVING,) = OPENINGS[3]              # edge 3 (west)
 F_S, F_E, F_N, F_W = [rk.Frame(OUTLINE[i], OUTLINE[(i + 1) % 4]) for i in range(4)]
 # F_S u = x - 5.32 | F_E u = y | F_N u = 8.6 - x | F_W u = 6.0 - y
 SINK_U = 1.8                            # centred under the window
