@@ -1,7 +1,7 @@
 # home-twin
 
 A digital twin of your home, built by Claude in Blender. A suite of Claude Code skills for
-scanning a home and rebuilding it in 3D: an iPhone room scan (RoomPlan / Polycam `.usdz`) and a
+scanning a home and rebuilding it in 3D: an iPhone room scan (RoomPlan / Polycam / magic plan `.usdz`) and a
 few walkthrough videos become:
 
 1. a clean **floorplan** and cutaway, for you to approve,
