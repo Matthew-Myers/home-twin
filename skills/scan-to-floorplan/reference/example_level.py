@@ -40,17 +40,20 @@ def build():
     rk.reset()
     wall = rk.mat("wall", (0.86, 0.85, 0.81), 0.9)
     trim = rk.mat("trim", (0.93, 0.93, 0.91), 0.5)
-    for room in pj.load()["rooms"]:
+    inferred_m = rk.mat("inferred_floor", (0.85, 0.62, 0.35), 0.6)    # not scanned: drawn apart
+    for room, r in pj.load()["rooms"].items():
         outline, openings, ceiling = pj.geometry(room)
-        floor_m = rk.mat(*FLOORS.get(room, ("floor", (0.6, 0.6, 0.58))), 0.5)
-        named(room, rk.shell, outline, ceiling, openings, wall, floor_m)
+        floor_m = inferred_m if r.get("inferred") else rk.mat(*FLOORS.get(room, ("floor", (0.6, 0.6, 0.58))), 0.5)
+        named(room, rk.shell, outline, ceiling, openings, wall, floor_m)   # one ground plane, made by the first
         for edge, ops in openings.items():
             f = rk.Frame(outline[edge], outline[(edge + 1) % len(outline)])
             for s0, s1, z0, z1 in ops:
                 if z0 > 0:                                  # starts above the floor: a window
                     named(room, rk.window, f, s0, s1, z0, z1, trim, (2, 1))
-    for o in [o for o in bpy.data.objects if o.name.endswith("ground") or "ground." in o.name][1:]:
-        bpy.data.objects.remove(o)                  # one outdoor ground plane is enough
+    # stairs (none in the demo): the scan never has them. Build them from the video with
+    #   rk.stairs(x0, y0, x1, y1, "N", steps=13, rise=0.20, m=oak)
+    # cut the stairwell out of that room's floor with rk.shell(..., floor_outline=[...]) and drop the
+    # ground below the flight: rk.make_ground(-30, -30, 40, 40, z=-3.0)
     oak = bpy.data.materials["oak_floor"]
     rk.box("living_threshold", 5.2, 3.4, -0.01, 5.32, 4.6, 0.0, oak, 0)   # floor through the wall opening
     kind_m = {"appliance": rk.mat("appliance", (0.85, 0.85, 0.86), 0.3),
@@ -101,18 +104,36 @@ LABEL_AT = {"living": (2.6, 2.6), "kitchen": (6.96, 4.3)}
 EXTRA_LABELS = []        # (text, x, y) for things that aren't rooms: "STAIRS", "closet", ...
 
 def labels():
+    """room name + size, scaled to fit the room: small rooms (closets) get one line, turned along
+    their long side; inferred rooms are starred and explained in a legend"""
     ink = rk.emissive("ink", (0.55, 0.02, 0.02), 0.3)
-    items = []
-    for room, r in pj.load()["rooms"].items():
+    items, any_inferred = [], False
+    rooms = pj.load()["rooms"]
+    for room, r in rooms.items():
         xs, ys = [c[0] for c in r["outline"]], [c[1] for c in r["outline"]]
         x, y = LABEL_AT.get(room, ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
-        items.append((room.upper().replace("_", " "), x, y, (max(xs) - min(xs), max(ys) - min(ys))))
-    items += [(t, x, y, None) for t, x, y in EXTRA_LABELS]
-    for name, x, y, size in items:
-        body = name if not size else f"{name}\n{size[0]:.2f} x {size[1]:.2f} m\n{ft_in(size[0])} x {ft_in(size[1])}"
-        cu = bpy.data.curves.new(name, 'FONT'); cu.body = body
-        cu.size = 0.28 if size else 0.22; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
-        t = rk.link(bpy.data.objects.new("label_" + name, cu)); t.location = (x, y, CUT + 0.6)
+        w, d = max(xs) - min(xs), max(ys) - min(ys)
+        star = "*" if r.get("inferred") else ""
+        any_inferred |= bool(star)
+        name = room.upper().replace("_", " ") + star
+        if min(w, d) < 1.2:          # closet-sized: one line, along the long side
+            items.append((name, f"{name} {max(w, d):.2f}x{min(w, d):.2f}", x, y,
+                          max(0.08, min(w, d) / 4.5), d > w))
+        else:
+            items.append((name, f"{name}\n{w:.2f} x {d:.2f} m\n{ft_in(w)} x {ft_in(d)}", x, y,
+                          max(0.12, min(0.28, min(w, d) / 9)), False))
+    items += [(t, t, x, y, 0.22, False) for t, x, y in EXTRA_LABELS]
+    if any_inferred:
+        xs = [c[0] for r in rooms.values() for c in r["outline"]]
+        ys = [c[1] for r in rooms.values() for c in r["outline"]]
+        items.append(("legend", "* not scanned: outline inferred from the walls around it",
+                      (min(xs) + max(xs)) / 2, min(ys) - 0.45, 0.16, False))
+    for key, body, x, y, size, turn in items:
+        cu = bpy.data.curves.new(key, 'FONT'); cu.body = body
+        cu.size = size; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
+        t = rk.link(bpy.data.objects.new("label_" + key, cu)); t.location = (x, y, CUT + 0.6)
+        if turn:
+            t.rotation_euler.z = math.pi / 2
         t.visible_shadow = False
         cu.materials.append(ink)
 

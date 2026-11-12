@@ -19,7 +19,12 @@ manager, e.g. `winget install BlenderFoundation.Blender`). Don't download instal
 
 If no `mcp__blender__*` tools exist (check with ToolSearch "blender"; they may still be connecting),
 register the server. Installed as part of the home-twin plugin, it is already declared in the
-plugin's `.mcp.json` and needs only `uv` on PATH and a restart. See `reference/server-registration.md` (uv, the Windows Smart App Control
+plugin's `.mcp.json` and needs only `uv` on PATH and a restart.
+
+A "failed to connect" note at session start can be stale: the first `uvx` run downloads the
+server and may outlast the startup timeout, then connect a little later. Don't trust the note,
+and don't trust an earlier tool error either. Call `get_addon_status` once: if it answers, the
+server is live. If the blender tools are not in ToolSearch at all, the server really is down. See `reference/server-registration.md` (uv, the Windows Smart App Control
 workaround, telemetry off). MCP tools load only when a session starts, so the user must start a new
 session afterwards.
 

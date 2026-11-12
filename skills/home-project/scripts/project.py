@@ -55,13 +55,45 @@ def new(name):
         "history": [],
     }
 
-def new_room(outline, ceiling, openings=None):
+def new_room(outline, ceiling, openings=None, kind="room", inferred=False, part_of=None):
     """outline: counter-clockwise interior corners [[x, y], ...]; openings: {edge: [[s0, s1, z0, z1], ...]}
-    measured along each edge from its first corner"""
-    return {"outline": [list(map(float, c)) for c in outline], "ceiling": ceiling,
-            "openings": {str(k): v for k, v in (openings or {}).items()},
-            "frames": None, "detail": None, "items": [],
-            "module": None, "status": "planned", "notes": ""}
+    measured along each edge from its first corner (pj.opening() converts absolute coordinates).
+    kind: "room" | "closet" | "stairs" | ...; inferred: the outline was NOT scanned but worked out
+    (closets RoomPlan skipped); part_of: the room whose module builds this one (a closet built
+    with its bedroom) - its status then follows that room's."""
+    r = {"outline": [list(map(float, c)) for c in outline], "ceiling": ceiling,
+         "openings": {str(k): v for k, v in (openings or {}).items()},
+         "frames": None, "detail": None, "items": [],
+         "module": None, "status": "planned", "notes": ""}
+    if kind != "room":
+        r["kind"] = kind
+    if inferred:
+        r["inferred"] = True
+    if part_of:
+        r["part_of"] = part_of
+    return r
+
+def opening(outline, edge, a, b, z0, z1):
+    """[s0, s1, z0, z1] for an opening given by ABSOLUTE plan coordinates a..b along an edge (x for an
+    east-west edge, y for a north-south one, as room_survey prints them). Counting from the edge's
+    first corner by hand goes wrong on edges that run west or south; this doesn't."""
+    (x0, y0), (x1, y1) = outline[edge], outline[(edge + 1) % len(outline)]
+    dx, dy = x1 - x0, y1 - y0
+    L = (dx * dx + dy * dy) ** 0.5
+    ux, uy = dx / L, dy / L
+    pts = [(c, y0 + (c - x0) * dy / dx) if abs(dx) >= abs(dy) else (x0 + (c - y0) * dx / dy, c) for c in (a, b)]
+    s = sorted((px - x0) * ux + (py - y0) * uy for px, py in pts)
+    return [round(s[0], 3), round(s[1], 3), z0, z1]
+
+def perimeter(root=None, p=None):
+    """interior faces of the level's outside walls, for rk.shell(shared=True): level.perimeter if
+    set (any polygon, CCW), else the bounding rectangle of every room outline"""
+    p = p or load(root)
+    if p["level"].get("perimeter"):
+        return [tuple(c) for c in p["level"]["perimeter"]]
+    xs = [c[0] for r in p["rooms"].values() for c in r["outline"]]
+    ys = [c[1] for r in p["rooms"].values() for c in r["outline"]]
+    return [(min(xs), min(ys)), (max(xs), min(ys)), (max(xs), max(ys)), (min(xs), max(ys))]
 
 # ---------------------------------------------------------------- used by Blender scripts
 def geometry(room, root=None):
@@ -111,6 +143,58 @@ def _area2(pts):
     return sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1]
                for i in range(len(pts)))
 
+def _segments(p):
+    """every door/opening (z0 == 0) as an absolute plan segment: (room, edge, (ax, ay), (bx, by))"""
+    out = []
+    for name, r in p["rooms"].items():
+        pts = r["outline"]
+        for k, ops in r.get("openings", {}).items():
+            i = int(k)
+            if i >= len(pts):
+                continue
+            (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % len(pts)]
+            L = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5 or 1
+            ux, uy = (x1 - x0) / L, (y1 - y0) / L
+            for s0, s1, z0, z1 in ops:
+                if z0 == 0:
+                    out.append((name, i, (x0 + ux * s0, y0 + uy * s0), (x0 + ux * s1, y0 + uy * s1)))
+    return out
+
+def _shared_door_problems(p, wall=(0.06, 0.20)):
+    """a door in a wall shared with another room must be entered in BOTH rooms; warn when the room
+    on the other side (its parallel wall face 0.06-0.20 m away, overlapping the door) has none"""
+    out, segs = [], _segments(p)
+    for name, i, a, b in segs:
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-6:
+            continue
+        ux, uy = dx / L, dy / L
+        nx, ny = uy, -ux                                   # outward (right of a CCW edge)
+        for other, r in p["rooms"].items():
+            if other == name:
+                continue
+            pts = r["outline"]
+            for j in range(len(pts)):
+                (px, py), (qx, qy) = pts[j], pts[(j + 1) % len(pts)]
+                d0 = (px - a[0]) * nx + (py - a[1]) * ny
+                d1 = (qx - a[0]) * nx + (qy - a[1]) * ny
+                if not (wall[0] - 0.02 <= d0 <= wall[1] and abs(d0 - d1) < 0.02):
+                    continue
+                t0, t1 = sorted(((px - a[0]) * ux + (py - a[1]) * uy, (qx - a[0]) * ux + (qy - a[1]) * uy))
+                if min(t1, L) - max(t0, 0) < 0.5 * L:      # that wall doesn't cover the door
+                    continue
+                mine = [s for s in segs if s[0] == other and s[1] == j]
+                hit = any(min(L, max((s[2][0] - a[0]) * ux + (s[2][1] - a[1]) * uy,
+                                     (s[3][0] - a[0]) * ux + (s[3][1] - a[1]) * uy))
+                          - max(0, min((s[2][0] - a[0]) * ux + (s[2][1] - a[1]) * uy,
+                                       (s[3][0] - a[0]) * ux + (s[3][1] - a[1]) * uy)) > 0.5 * L
+                          for s in mine)
+                if not hit:
+                    out.append(f"{name}: door on edge {i} ({a[0]:.2f},{a[1]:.2f})-({b[0]:.2f},{b[1]:.2f}) has no "
+                               f"matching opening in '{other}' edge {j} (shared wall: enter it in both rooms)")
+    return out
+
 def check(p):
     """cheap sanity checks; returns a list of problems"""
     out = []
@@ -135,6 +219,8 @@ def check(p):
                     out.append(f"{name}: edge {i} opening height {z0}-{z1} outside floor-ceiling")
         if r.get("detail") and r["detail"] not in DETAIL_LEVELS:
             out.append(f"{name}: detail '{r['detail']}' is not one of {DETAIL_LEVELS}")
+        if r.get("part_of") and r["part_of"] not in p["rooms"]:
+            out.append(f"{name}: part_of '{r['part_of']}' is not a room")
         for cid, c in r.get("concepts", {}).items():
             if c.get("status") not in CONCEPT_STATES:
                 out.append(f"{name}/{cid}: concept status '{c.get('status')}' is not one of {CONCEPT_STATES}")
@@ -145,6 +231,7 @@ def check(p):
     b = p.get("brief")
     if b and b.get("scope") and b["scope"] not in SCOPES:
         out.append(f"brief: scope '{b['scope']}' is not one of {SCOPES}")
+    out += _shared_door_problems(p)
     return out
 
 # ---------------------------------------------------------------- CLI
@@ -188,7 +275,11 @@ def status(root):
     print(f"{p['name']}: level {lv['status']}, ceiling {lv.get('ceiling')} m, scan {p['scan'].get('file')}")
     w = max([len(n) for n in p["rooms"]] + [4])
     for name, r in p["rooms"].items():
-        print(f"  {name:<{w}}  {r['status']:<9} detail={r.get('detail') or '-':<16} module={r.get('module') or '-'}")
+        tag = (f"  [{r.get('kind', 'room')}" + (", inferred" if r.get("inferred") else "")
+               + (f", part of {r['part_of']}" if r.get("part_of") else "") + "]") if (
+               r.get("kind") or r.get("inferred") or r.get("part_of")) else ""
+        st = p["rooms"][r["part_of"]]["status"] if r.get("part_of") in p["rooms"] else r["status"]
+        print(f"  {name:<{w}}  {st:<9} detail={r.get('detail') or '-':<16} module={r.get('module') or '-'}{tag}")
         for cid, c in r.get("concepts", {}).items():
             print(f"  {'':<{w}}    concept {cid:<14} {c['status']:<11} {c.get('scope') or '-':<8} {c.get('title', '')}")
     if p.get("brief"):
@@ -205,10 +296,11 @@ def next_step(p):
         return "scan-to-floorplan (no scan read yet)"
     if p["level"]["status"] != "approved":
         return "scan-to-floorplan (floorplan not approved yet)"
-    for name, r in p["rooms"].items():
+    own = {n: r for n, r in p["rooms"].items() if not r.get("part_of")}   # parts follow their room
+    for name, r in own.items():
         if r["status"] in ("planned", "modelled"):
             return f"room-rebuild ({name} is {r['status']})"
-    if any(r["status"] == "approved" for r in p["rooms"].values()):
+    if any(r["status"] == "approved" for r in own.values()):
         return "room-rebuild (final renders for approved rooms)"
     if not p.get("brief"):
         return "all rooms final; renovation-concepts if a remodel is wanted (no design brief yet)"

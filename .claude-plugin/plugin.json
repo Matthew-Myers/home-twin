@@ -1,6 +1,6 @@
 {
   "name": "home-twin",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Skills for scanning a home and rebuilding it in Blender: capture checklist, floorplan from a USDZ scan + videos, room models at a chosen detail level, lit renders, and renovation concepts with before/after boards, all on a shared project file.",
   "author": { "name": "Matthew-Myers" },
   "homepage": "https://github.com/Matthew-Myers/home-twin",

@@ -379,47 +379,161 @@ class Frame:
         return ob
 
 # ---------------------------------------------------------------- room shell
-def shell(outline, height, openings, wall_m, floor_m, ceiling_m=None, thick=0.12, base_m=None):
+def _on_perimeter(a, b, perimeter, tol=0.03):
+    """True if the wall a->b lies along one edge of the level's perimeter (interior faces of the
+    outside walls, any polygon)"""
+    if not perimeter:
+        return False
+    m = len(perimeter)
+    for k in range(m):
+        p, q = Vector((*perimeter[k], 0)), Vector((*perimeter[(k + 1) % m], 0))
+        d = q - p
+        if d.length < 1e-6:
+            continue
+        u = d.normalized()
+        def near(pt):
+            w = Vector((*pt, 0)) - p
+            t = w.dot(u)
+            return -tol <= t <= d.length + tol and (w - u * t).length <= tol
+        if near(a) and near(b):
+            return True
+    return False
+
+def shell(outline, height, openings, wall_m, floor_m, ceiling_m=None, thick=0.12, base_m=None,
+          shared=False, perimeter=None, exterior_m=None, floor_outline=None, ground=True):
     """walls (with openings), floor and ceiling for a room.
     outline: counter-clockwise interior corners. openings: {edge index: [(s0, s1, z0, z1), ...]}
-    measured along each edge from its start corner."""
+    measured along each edge from its start corner.
+
+    shared=True (use it whenever rooms have different wall colours): neighbouring outlines sit `thick`
+    apart, so building the full wall from both rooms makes two identical boxes whose paints z-fight.
+    In shared mode each room builds only its half (thick/2), plus an exterior skin (thick/2,
+    exterior_m) on edges along `perimeter` (pj.perimeter()), and fills its half of every doorway
+    (threshold + jamb lining); the neighbour fills the other half.
+    floor_outline: a different floor polygon (e.g. stopping at a stairwell: see stairs()).
+    ground: the outdoor ground plane (one per scene: skipped if a "ground" object already exists)."""
     n = len(outline)
+    wall_t = thick / 2 if shared else thick
+    exterior_m = exterior_m or mat("exterior_wall", (0.80, 0.80, 0.78), 0.9)   # not the room's paint
     def convex(j):
         """True at an outside corner (left turn on a CCW outline): walls extend to close it.
         At inside corners an extension would poke into the room."""
         (ax, ay), (bx, by), (cx, cy) = outline[j - 1], outline[j], outline[(j + 1) % n]
         return (bx - ax) * (cy - by) - (by - ay) * (cx - bx) > 0
-    for i in range(n):
-        f = Frame(outline[i], outline[(i + 1) % n])
-        cuts = sorted(openings.get(i, []))
-        # solid spans between openings, and the wall above/below each opening
+    def spans(f, cuts, v0, v1, ext0, ext1, m, name):
         edges = [0.0] + [c for s0, s1, _, _ in cuts for c in (s0, s1)] + [f.length]
-        ext0 = thick if convex(i) else 0.0
-        ext1 = thick if convex((i + 1) % n) else 0.0
         for k in range(0, len(edges), 2):
             if edges[k + 1] - edges[k] > 1e-3:
                 a = edges[k] - (ext0 if k == 0 else 0)
                 b = edges[k + 1] + (ext1 if k + 2 == len(edges) else 0)
-                f.box(f"wall{i}_{k}", a, b, -thick, 0, 0, height, wall_m, 0)
+                f.box(f"{name}_{k}", a, b, v0, v1, 0, height, m, 0)
         for j, (s0, s1, z0, z1) in enumerate(cuts):
             if z0 > 0:
-                f.box(f"wall{i}_sill{j}", s0, s1, -thick, 0, 0, z0, wall_m, 0)
-            f.box(f"wall{i}_head{j}", s0, s1, -thick, 0, z1, height, wall_m, 0)
+                f.box(f"{name}_sill{j}", s0, s1, v0, v1, 0, z0, m, 0)
+            f.box(f"{name}_head{j}", s0, s1, v0, v1, z1, height, m, 0)
+        return edges
+    for i in range(n):
+        a, b = outline[i], outline[(i + 1) % n]
+        f = Frame(a, b)
+        cuts = sorted(openings.get(i, []))
+        c0, c1 = convex(i), convex((i + 1) % n)
+        outside = shared and _on_perimeter(a, b, perimeter)
+        edges = spans(f, cuts, -wall_t, 0, wall_t if c0 else 0, wall_t if c1 else 0, wall_m, f"wall{i}")
+        if outside:
+            spans(f, cuts, -thick, -wall_t, thick if c0 else 0, thick if c1 else 0, exterior_m, f"ext{i}")
+        if shared:   # this room's half of each doorway: floor through the wall, jamb lining
+            for j, (s0, s1, z0, z1) in enumerate(cuts):
+                if z0 == 0:
+                    depth = thick if outside else wall_t
+                    f.box(f"threshold{i}_{j}", s0, s1, -depth, 0, -0.02, 0, floor_m, 0)
+                    for side, (u0, u1) in (("l", (s0, s0 + 0.012)), ("r", (s1 - 0.012, s1))):
+                        f.box(f"jamb{i}_{j}{side}", u0, u1, -depth, 0, 0, z1, base_m or wall_m, 0)
+                    f.box(f"jamb{i}_{j}t", s0, s1, -depth, 0, z1 - 0.012, z1, base_m or wall_m, 0)
         if base_m:   # baseboard
             for k in range(0, len(edges), 2):
                 if edges[k + 1] - edges[k] > 1e-3:
                     f.box(f"base{i}_{k}", edges[k], edges[k + 1], 0, 0.012, 0, 0.09, base_m, 0.001)
-    xs = [p[0] for p in outline]; ys = [p[1] for p in outline]
+    fo = floor_outline or outline
     me = bpy.data.meshes.new("floor")
-    me.from_pydata([(x, y, 0) for x, y in outline], [], [list(range(n))])
-    fl = link(bpy.data.objects.new("floor", me)); me.materials.append(floor_m)
+    me.from_pydata([(x, y, 0) for x, y in fo], [], [list(range(len(fo)))])
+    link(bpy.data.objects.new("floor", me)); me.materials.append(floor_m)
     if ceiling_m:
         me2 = bpy.data.meshes.new("ceiling")
         me2.from_pydata([(x, y, height) for x, y in outline], [], [list(reversed(range(n)))])
-        cl = link(bpy.data.objects.new("ceiling", me2)); me2.materials.append(ceiling_m)
-    # outdoor ground beyond the windows
-    box("ground", min(xs) - 30, min(ys) - 30, -0.6, max(xs) + 30, max(ys) + 30, -0.5,
-        mat("ground", (0.25, 0.3, 0.18), 1.0), 0)
+        link(bpy.data.objects.new("ceiling", me2)); me2.materials.append(ceiling_m)
+    if ground and not bpy.data.objects.get("ground"):
+        xs = [p[0] for p in outline]; ys = [p[1] for p in outline]
+        make_ground(min(xs) - 30, min(ys) - 30, max(xs) + 30, max(ys) + 30)
+
+def make_ground(x0, y0, x1, y1, z=-0.5):
+    """the one outdoor ground plane seen through windows; lower z below any stair flight"""
+    old = bpy.data.objects.get("ground")
+    if old:
+        bpy.data.objects.remove(old)
+    return box("ground", x0, y0, z - 0.1, x1, y1, z, mat("ground", (0.25, 0.3, 0.18), 1.0), 0)
+
+def stairs(x0, y0, x1, y1, toward, steps, rise, m, down=True, riser_m=None, nosing=0.02, t=0.04):
+    """straight flight filling the plan rectangle x0..x1, y0..y1. toward: 'N'|'S'|'E'|'W', the
+    direction you walk while going DOWN (down=True: from this floor to the one below, the flight's
+    top at z 0) or UP (down=False: from z 0 to steps*rise). Scans never capture stairs: take the
+    count from the video (or rise ~0.18-0.20 m) and leave the stairwell out of the floor with
+    shell(floor_outline=...). Names start "stair_"."""
+    along_y = toward in ("N", "S")
+    length = (y1 - y0) if along_y else (x1 - x0)
+    run = length / steps
+    sgn = 1 if toward in ("N", "E") else -1
+    start = (y0 if sgn > 0 else y1) if along_y else (x0 if sgn > 0 else x1)
+    def piece(name, a, b, z0, z1, mm, bevel=0.002):       # a..b along the flight, full width across
+        lo, hi = min(a, b), max(a, b)
+        if along_y:
+            return box(name, x0, lo, z0, x1, hi, z1, mm, bevel)
+        return box(name, lo, y0, z0, hi, y1, z1, mm, bevel)
+    out = []
+    for i in range(steps):
+        a = start + sgn * i * run                      # front edge of tread i, where its riser is
+        top = -(i + 1) * rise if down else (i + 1) * rise
+        out.append(piece(f"stair_tread{i}", a - sgn * nosing, a + sgn * run, top - t, top, m))
+        if riser_m:                                    # the drop (down) or climb (up) at that edge
+            z0, z1 = (top, top + rise - t) if down else (top - rise, top - t)
+            out.append(piece(f"stair_riser{i}", a, a + sgn * 0.02, z0, z1, riser_m, 0))
+    return out
+
+def door_leaf(f, s0, s1, z1, m, knob_m, hinge="s0", swing=80, into=True, wall=0.06, t=0.035):
+    """hinged slab door in an opening on wall frame f. hinge at the s0 or s1 jamb; swing degrees open
+    (0 = closed, in the wall); into=True opens into the room the frame belongs to (v > 0).
+    wall: this room's wall depth (thick/2 with shell(shared=True)). Build the leaf in ONE room only:
+    the room it swings into (closet doors: the room the closet opens from)."""
+    w = s1 - s0 - 0.01
+    hu = s0 + 0.005 if hinge == "s0" else s1 - 0.005
+    a = math.radians(swing)
+    U = f.u * ((1 if hinge == "s0" else -1) * math.cos(a)) + f.v * ((1 if into else -1) * math.sin(a))
+    N = Vector((-U.y, U.x, 0))
+    p0 = f.at(hu, 0 if into else -wall, 0)
+    corners = [p0 + U * uu + N * nn + Vector((0, 0, zz)) for zz in (0.01, z1 - 0.01)
+               for (uu, nn) in ((0, -t / 2), (w, -t / 2), (w, t / 2), (0, t / 2))]
+    ob = mesh_box("door_leaf", corners, m, 0.003)
+    kp = p0 + U * (w - 0.07) + Vector((0, 0, 0.95))
+    for side in (-1, 1):
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.026, location=kp + N * side * (t / 2 + 0.03),
+                                             segments=16, ring_count=8)
+        k = bpy.context.object; k.name = "door_knob"; k.data.materials.append(knob_m)
+    return ob
+
+def bypass_doors(f, s0, s1, z1, m, track_m=None, open_frac=0.0, v=0.0):
+    """two overlapping sliding panels (closet) in an opening; open_frac slides the front one over"""
+    w = (s1 - s0) / 2 + 0.03
+    off = open_frac * (w - 0.06)
+    f.box("slider_back", s0, s0 + w, v - 0.05, v - 0.02, 0.01, z1 - 0.02, m, 0.003)
+    f.box("slider_front", s1 - w - off, s1 - off, v - 0.015, v + 0.015, 0.01, z1 - 0.02, m, 0.003)
+    f.box("slider_track", s0, s1, v - 0.06, v + 0.02, z1 - 0.03, z1, track_m or m, 0)
+
+def closet_fit(f, u0, u1, depth, shelf_m, rod_m, clothes_m=None, z_shelf=1.75):
+    """shelf + hanging rod along a closet's back wall; optional block of hanging clothes"""
+    f.box("closet_shelf", u0, u1, 0, min(0.35, depth - 0.05), z_shelf, z_shelf + 0.02, shelf_m)
+    rv = min(0.30, depth / 2)
+    f.cyl("closet_rod", rv, z_shelf - 0.08, u0, u1, 0.014, rod_m, axis="u", verts=12)
+    if clothes_m:
+        f.box("closet_clothes", u0 + 0.05, u1 - 0.05, rv - 0.25, rv + 0.25, 0.75, z_shelf - 0.12, clothes_m, 0.03)
 
 def window(f, s0, s1, z0, z1, frame_m, mullions=(1, 1)):
     """window in a wall opening: frame, glass, optional grid (cols, rows)"""

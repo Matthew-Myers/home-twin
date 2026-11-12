@@ -28,10 +28,21 @@ finish, and note doubts in your report rather than asking):
 Conventions (must match so rooms assemble):
 - Plan metres from the level's south-west corner: x east, y north, z = 0 at the floor.
 - Outline counter-clockwise; `rk.Frame(p0, p1)` puts the room on the left, u along the wall, v into it.
-- `rk.shell(outline, CEILING, openings, wall_m, floor_m, ceiling_m, base_m=trim)` builds walls
-  OUTWARD 0.12 m from the interior faces. Openings per edge: `(start, end, bottom, top)` from the
-  edge's first corner.
+- `rk.shell(outline, CEILING, openings, wall_m, floor_m, ceiling_m, base_m=trim, shared=True,
+  perimeter=pj.perimeter())`: this room builds its HALF (0.06 m) of each shared wall, plus an
+  exterior skin on outside walls. The neighbour builds the other half, so the paints never z-fight.
+  Openings per edge: `(start, end, bottom, top)` from the edge's first corner.
+- Shared materials (floor, trim, door stain): import them from `<scripts/rooms/_common.py, or none>`.
+  Don't redefine them.
+- Door leaves, decided up front, so no door is built twice or not at all. This room builds:
+  <the doors that swing into this room, and the doors of closets that open from it: "edge 2
+  door: rk.door_leaf, hinge s0, swing 80" / "closet edge 1: rk.bypass_doors">.
+- Closets that are part of this room (`part_of`): <closet names, or none>. Build them in this
+  module with `rk.closet_fit`.
 - Name the ceiling `ceiling_<room>`; anything else hidden in overhead views starts with `ceiling_`.
+- Cameras that reproduce a still render at the still's aspect (portrait stills: e.g. 900×1200).
+- Exposure: aim for <the level's target exposure, or "the same brightness as the stills in
+  daylight">. Dim evening video is not a reason to render the room dark.
 
 Deliverable: `scripts/rooms/<room>.py` (start from an example module's structure) with
 - `build_asis()`: builds into the CURRENT scene only (no reset, world, camera or render).
@@ -50,4 +61,7 @@ Rules:
   repeat until it reads right. Before reporting, render `overhead` and check nothing floats, nothing
   passes through a wall, and nothing blocks a doorway.
 - Report back briefly: what you built, which still each camera and placement matches, assumptions,
-  and file paths.
+  and file paths. End with a **Floorplan corrections** section: every wall, opening, door hinge or
+  big-item position that the stills show differently from `project.json` / `level.py`, with the
+  still and the corrected numbers (absolute plan coordinates). Write "none" if there are none.
+  These get merged back into the floorplan.

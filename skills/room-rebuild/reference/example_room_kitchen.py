@@ -50,7 +50,8 @@ def named(fn, *a, **kw):
 
 def build_asis():
     M, st = materials(), style()
-    named(rk.shell, OUTLINE, CEILING, OPENINGS, M["wall"], M["floor"], M["ceiling"], base_m=M["trim"])
+    named(rk.shell, OUTLINE, CEILING, OPENINGS, M["wall"], M["floor"], M["ceiling"], base_m=M["trim"],
+          shared=True, perimeter=pj.perimeter())
     for o in bpy.data.objects:
         if o.name == f"{ROOM}_ceiling":
             o.name = f"ceiling_{ROOM}"

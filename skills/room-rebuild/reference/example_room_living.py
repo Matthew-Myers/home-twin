@@ -80,7 +80,9 @@ def books(f, u0, u1, z, m_list, depth=0.22, seed=0):
 # ---------------------------------------------------------------- the room
 def build_asis():
     M = materials()
-    named(rk.shell, OUTLINE, CEILING, OPENINGS, M["wall"], M["floor"], M["ceiling"], base_m=M["trim"])
+    # shared=True: this room builds its half of each shared wall, so neighbouring paints don't z-fight
+    named(rk.shell, OUTLINE, CEILING, OPENINGS, M["wall"], M["floor"], M["ceiling"], base_m=M["trim"],
+          shared=True, perimeter=pj.perimeter())
     for o in bpy.data.objects:
         if o.name == f"{ROOM}_ceiling":
             o.name = f"ceiling_{ROOM}"

@@ -17,7 +17,9 @@ skills through `scripts/project.py`; safe to read and edit by hand. Example: `ex
   "level": {
     "ceiling": 2.13,                        // typical ceiling, m
     "script": "scripts/level.py",
-    "status": "draft"                       // draft | approved (only the user approves)
+    "status": "draft",                      // draft | approved (only the user approves)
+    "perimeter": [[0.28, 0.28], ...]        // optional: interior faces of the OUTSIDE walls, CCW, for
+                                            // rk.shell(shared=True); default: bounding box of all rooms
   },
   "rooms": {
     "garage": {
@@ -32,6 +34,10 @@ skills through `scripts/project.py`; safe to read and edit by hand. Example: `ex
       "module": "scripts/rooms/garage.py",  // build_asis() + CAMERAS
       "status": "planned",                  // planned | modelled | approved | final
       "notes": "free text: what's assumed, what the user corrected",
+      // optional, for spaces the scan skipped (closets) and spaces built by another room's module:
+      "kind": "closet",                     // room (default, omitted) | closet | stairs | ...
+      "inferred": true,                     // outline worked out from the walls around it, not scanned
+      "part_of": "bedroom",                 // built by that room's module; status follows that room
       "concepts": {                         // renovation-concepts; written by the concept module's INFO
         "nook": {
           "title": "Open nook",
@@ -59,7 +65,9 @@ skills through `scripts/project.py`; safe to read and edit by hand. Example: `ex
 - Geometry lives here only. `level.py` and room modules call `pj.geometry(room)`; a correction to a
   wall or opening is made here once and every script picks it up.
 - Walls are built outward 0.12 m from the interior faces (`rk.shell`), so two rooms sharing a wall
-  have outlines 0.12 m apart.
+  have outlines 0.12 m apart. With `shared=True`, each room builds its 0.06 m half.
+- Write openings with `pj.opening(outline, edge, a, b, z0, z1)` from absolute coordinates. A door
+  between two rooms appears in both rooms. `status` warns if one side is missing.
 - `status` moves forward only when its condition is met: `modelled` when the module renders,
   `approved` on the user's word, `final` when the final renders exist. Going back (the user reopens
   a room) is fine: set it and log why.

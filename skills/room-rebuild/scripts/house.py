@@ -33,13 +33,16 @@ def build_house(log=print):
     """build every room into the current scene; returns the rooms that built"""
     built = []
     for name in room_names():
-        mod = importlib.import_module(name)
-        importlib.reload(mod)
-        if not hasattr(mod, "build_asis"):
-            log(f"house: {name} has no build_asis(), skipping")
-            continue
-        mod.build_asis()
-        built.append(name)
+        try:
+            mod = importlib.import_module(name)
+            importlib.reload(mod)
+            if not hasattr(mod, "build_asis"):
+                log(f"house: {name} has no build_asis(), skipping")
+                continue
+            mod.build_asis()
+            built.append(name)
+        except Exception as e:                      # a half-written module must not sink the whole level
+            log(f"house: {name} failed to build, SKIPPED ({type(e).__name__}: {e})")
     grounds = [o for o in bpy.data.objects if o.name == "ground" or o.name.startswith("ground.")]
     for o in grounds[1:]:
         bpy.data.objects.remove(o)                 # one outdoor ground plane is enough
@@ -59,19 +62,20 @@ def views(b):
     cx, cy, w, h = (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0
     long_y = h >= w
     span = max(w, h) * 1.06
+    short = round(2200 * (min(w, h) * 1.06 + 0.3) / span)     # frame follows the footprint's aspect
     return {
-        # true plan: orthographic, straight down, north up
+        # true plan: orthographic, straight down, north up (ortho_scale spans the longer side)
         "plan": dict(eye=(cx, cy, 40), target=(cx, cy, 0), scale=span,
-                     res=(1100, 2200) if long_y else (2200, 1100)),
+                     res=(short, 2200) if long_y else (2200, short)),
         # 3/4 view from the south-east, 50 deg down, long axis across the frame
         "iso": dict(eye=(cx + 30 * math.cos(math.radians(50)) * (0.85 if long_y else 0.3),
                          cy - 30 * math.cos(math.radians(50)) * (0.5 if long_y else 0.95),
                          30 * math.sin(math.radians(50))),
-                    target=(cx, cy, 0.5), scale=span * 0.98, res=(2400, 1600)),
+                    target=(cx, cy, 0.5), scale=span * 1.12, res=(2400, 1600)),   # 0.98 clipped corners
         # 3/4 view from the south-west
         "iso_sw": dict(eye=(cx - 30 * math.cos(math.radians(50)) * 0.85, cy - 30 * math.cos(math.radians(50)) * 0.5,
                             30 * math.sin(math.radians(50))),
-                       target=(cx, cy, 0.5), scale=span * 0.98, res=(2400, 1600)),
+                       target=(cx, cy, 0.5), scale=span * 1.12, res=(2400, 1600)),
     }
 
 def view_camera(name, cfg):
