@@ -32,6 +32,7 @@
 - `rk.shell` makes the outdoor ground only if none exists yet (one per scene). Lower it below a stair flight with `rk.make_ground(..., z=...)`.
 - Plank textures run along image x: on walls they come out horizontal. Vertical boards: `rk.pbr(..., rot3=(0, 90, 0))` on walls along x, `rot3=(90, 0, 0)` on walls along y.
 - Point lights show as white dots in glossy reflections → `light.visible_glossy = False`.
+- Face direction matters outside Blender. Blender draws both sides of a face, so inside-out geometry never shows here, but game engines (Unreal, Unity) cull back faces and collide one-sided. `rk.mesh_box` points its faces outward. Any custom closed mesh should too (`bmesh.ops.recalc_face_normals`).
 - Light leaks through cut-away walls → invisible full-height occluders (`visible_camera = False`).
 - EEVEE rough passes render mirrors black → Cycles at 64 samples is a few seconds on a modern GPU.
 - Name ceiling-hung objects with a prefix in `house.py`'s `HIDE_FROM_ABOVE` (`ceiling_*`, light names). `rk.flush_light` names its globe `ceiling_flush`.

@@ -332,6 +332,13 @@ def mesh_box(name, corners, m, bevel=0.002):
     me = bpy.data.meshes.new(name)
     faces = [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
     me.from_pydata([tuple(c) for c in corners], [], faces)
+    # point the faces outward whatever order the corners came in (a frame on a wall running west, or
+    # a mirrored box, would otherwise come out inside-out). Blender draws both sides, so it never
+    # shows here, but game engines cull back faces and collide one-sided.
+    import bmesh
+    bm = bmesh.new(); bm.from_mesh(me)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(me); bm.free()
     me.update()
     ob = link(bpy.data.objects.new(name, me))
     if m:
