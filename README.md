@@ -1,7 +1,8 @@
-# scan-to-blender
+# home-twin
 
-A suite of Claude Code skills for scanning a home and rebuilding it in Blender. An iPhone room
-scan (RoomPlan / Polycam `.usdz`) and a few walkthrough videos become:
+A digital twin of your home, built by Claude in Blender. A suite of Claude Code skills for
+scanning a home and rebuilding it in 3D: an iPhone room scan (RoomPlan / Polycam `.usdz`) and a
+few walkthrough videos become:
 
 1. a clean **floorplan** and cutaway, for you to approve,
 2. **room models** matched to the video, at the detail level you pick,
@@ -37,9 +38,11 @@ basement?" and the home-project skill reports and names the next step.
 As a plugin (recommended):
 
 ```
-/plugin marketplace add Matthew-Myers/scan-to-blender
-/plugin install scan-to-blender@scan-to-blender
+/plugin marketplace add Matthew-Myers/home-twin
+/plugin install home-twin@home-twin
 ```
+
+(Formerly `scan-to-blender`: old links redirect.)
 
 Without the plugin system, copy every folder in `skills/` into `~/.claude/skills/`. They find
 each other as siblings. Register the MCP server yourself if you want live Blender (see

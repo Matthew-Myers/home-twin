@@ -18,7 +18,7 @@ manager, e.g. `winget install BlenderFoundation.Blender`). Don't download instal
 ## 2. MCP server registered in Claude?
 
 If no `mcp__blender__*` tools exist (check with ToolSearch "blender"; they may still be connecting),
-register the server. Installed as part of the scan-to-blender plugin, it is already declared in the
+register the server. Installed as part of the home-twin plugin, it is already declared in the
 plugin's `.mcp.json` and needs only `uv` on PATH and a restart. See `reference/server-registration.md` (uv, the Windows Smart App Control
 workaround, telemetry off). MCP tools load only when a session starts, so the user must start a new
 session afterwards.

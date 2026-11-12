@@ -1,9 +1,9 @@
 {
-  "name": "scan-to-blender",
+  "name": "home-twin",
   "owner": { "name": "Matthew-Myers" },
   "plugins": [
     {
-      "name": "scan-to-blender",
+      "name": "home-twin",
       "source": "./",
       "description": "Home scan suite: capture, floorplan, room rebuild and renders in Blender, with live-Blender (MCP) setup."
     }
