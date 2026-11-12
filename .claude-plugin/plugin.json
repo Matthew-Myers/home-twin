@@ -1,0 +1,10 @@
+{
+  "name": "scan-to-blender",
+  "version": "0.1.0",
+  "description": "Turn an iPhone room scan (USDZ) and walkthrough videos into a Blender floorplan, room models at a chosen detail level, and lit renders.",
+  "author": { "name": "Matthew-Myers" },
+  "homepage": "https://github.com/Matthew-Myers/scan-to-blender",
+  "repository": "https://github.com/Matthew-Myers/scan-to-blender",
+  "license": "MIT",
+  "keywords": ["blender", "3d", "floorplan", "interior", "roomplan", "usdz", "rendering", "mcp"]
+}

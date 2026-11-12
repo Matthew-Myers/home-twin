@@ -1,0 +1,11 @@
+{
+  "name": "scan-to-blender",
+  "owner": { "name": "Matthew-Myers" },
+  "plugins": [
+    {
+      "name": "scan-to-blender",
+      "source": "./",
+      "description": "Room scan + walkthrough videos -> Blender floorplan, room models and lit renders. Includes live-Blender (MCP) setup."
+    }
+  ]
+}

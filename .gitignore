@@ -1,0 +1,12 @@
+# never commit anyone's home: scans, videos, frames, renders, downloaded assets
+*.usdz
+*.mp4
+*.mov
+*.MOV
+*.blend
+*.blend1
+frames/
+renders/
+assets/
+source/
+__pycache__/
